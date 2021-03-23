@@ -14,7 +14,7 @@ provider:
         - dynamodb:GetItem
         - dynamodb:PutItem
       Resource:
-        - !GetAtt: WorkspacesTable.Arn
+        - !GetAtt WorkspacesTable.Arn
 
 package:
   exclude:
@@ -24,7 +24,7 @@ package:
 
 functions:
   oauth:
-    handler: api/oath.default
+    handler: api/oauth.handler
     layers:
       - !GetAtt Deno.Outputs.LayerArn
     memorySize: 128
@@ -32,10 +32,10 @@ functions:
     events:
       - http:
           path: oauth
-          method: post
+          method: get
 
   processMessage:
-    handler: api/process_message.default
+    handler: api/process_message.handler
     layers:
       - !GetAtt Deno.Outputs.LayerArn
     memorySize: 128
@@ -43,7 +43,7 @@ functions:
     events:
       - http:
           path: message
-          method: get
+          method: post
 
 resources:
   Transform: AWS::Serverless-2016-10-31
