@@ -1,0 +1,77 @@
+service: gor-links
+frameworkVersion: ">=1.1.1 <2.0.0"
+
+provider:
+  name: aws
+  runtime: provided.al2
+  stage: dev
+  region: ${env:AWS_DEFAULT_REGION, 'ap-southeast-2'}
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+      Resource:
+        - !GetAtt: WorkspacesTable.Arn
+
+package:
+  exclude:
+    - .deno_dir/gen/file
+    - node_modules
+    - package-lock.json
+
+functions:
+  oauth:
+    handler: api/oath.default
+    layers:
+      - !GetAtt Deno.Outputs.LayerArn
+    memorySize: 128
+    description: oauth handler
+    events:
+      - http:
+          path: oauth
+          method: post
+
+  processMessage:
+    handler: api/process_message.default
+    layers:
+      - !GetAtt Deno.Outputs.LayerArn
+    memorySize: 128
+    description: message event handler
+    events:
+      - http:
+          path: message
+          method: get
+
+resources:
+  Transform: AWS::Serverless-2016-10-31
+  Resources:
+    Deno:
+      Type: AWS::Serverless::Application
+      Properties:
+        Location:
+          ApplicationId: arn:aws:serverlessrepo:us-east-1:390065572566:applications/deno
+          SemanticVersion: 1.7.2
+
+    WorkspacesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: gor-links-workspaces
+        AttributeDefinitions:
+          - AttributeName: workspaceId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: workspaceId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+
+plugins:
+  - serverless-scriptable-plugin
+
+custom:
+  scriptHooks:
+    before:package:createDeploymentArtifacts: DENO_DIR=.deno_dir deno cache main.ts && cp -R .deno_dir/gen/file/$PWD/ .deno_dir/LAMBDA_TASK_ROOT
